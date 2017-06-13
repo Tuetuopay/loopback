@@ -275,33 +275,42 @@ module.exports = function(Role) {
       }
 
       // Try to follow belongsTo
-      for (var r in modelClass.relations) {
+      var belongsToRels = Object.keys(modelClass.relations).filter(function(r) {
         var rel = modelClass.relations[r];
         // relation should be belongsTo and target a User based class
         var belongsToUser = rel.type === 'belongsTo' && isUserClass(rel.modelTo);
         if (!belongsToUser) {
-          continue;
+          return false;
         }
         // checking related user
         var userModelName = rel.modelTo.modelName;
         if (principalType === Principal.USER || principalType === userModelName) {
-          debug('Checking relation %s to %s: %j', r, userModelName, rel);
-          inst[r](processRelatedUser);
-          return;
+          return true;
         }
-      }
-      debug('No matching belongsTo relation found for model %j - user %j principalType %j',
-        modelId, userId, principalType);
-      callback(null, false);
+        return false;
+      });
 
-      function processRelatedUser(err, user) {
-        if (!err && user) {
-          debug('User found: %j', user.id);
-          callback(null, matches(user.id, userId));
-        } else {
-          callback(err, false);
-        }
+      if (belongsToRels.length == 0) {
+        debug('No matching belongsTo relation found for model %j - user %j principalType %j',
+          modelId, userId, principalType);
+        callback(null, false);
       }
+
+      // Check all relations
+      async.detect(
+        belongsToRels,
+        function(r, cb) {
+          inst[r](function(err, user) { // load related object
+            if (!err && user) {
+              debug('User found: %j', user.id);
+              cb(null, matches(user.id, userId));
+            } else {
+              cb(err, false);
+            }
+          });
+        },
+        callback
+      );
     });
     return callback.promise;
   };
