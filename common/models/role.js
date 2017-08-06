@@ -293,7 +293,7 @@ module.exports = function(Role) {
       if (belongsToRels.length == 0) {
         debug('No matching belongsTo relation found for model %j - user %j principalType %j',
           modelId, userId, principalType);
-        callback(null, false);
+        return callback(null, false);
       }
 
       // Check all relations
